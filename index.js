@@ -90,21 +90,32 @@ app.post('/api/login', async (req, res) => {
   console.log('Contraseña:', contrasena);
 
   try {
+    // Verificar si el email existe en la base de datos
     const [users] = await pool.query('SELECT * FROM usuarios WHERE email = ?', [email]);
     const user = users[0];
 
-    if (user && (await bcrypt.compare(contrasena, user.contrasena))) {
-      const token = jwt.sign({ id: user.id, rol: user.rol }, JWT_SECRET, { expiresIn: '1h' });
-
-      return res.json({
-        token,
-        nombre: user.nombre,
-        email: user.email,
-        tipoUsuario: user.rol,
-      });
-    } else {
+    if (!user) {
+      console.log('Usuario no encontrado en la base de datos');
       return res.status(400).json({ message: 'Correo o contraseña incorrectos' });
     }
+
+    // Comparar la contraseña
+    const passwordMatch = await bcrypt.compare(contrasena, user.contrasena);
+    if (!passwordMatch) {
+      console.log('Contraseña incorrecta');
+      return res.status(400).json({ message: 'Correo o contraseña incorrectos' });
+    }
+
+    // Generar el token
+    const token = jwt.sign({ id: user.id, rol: user.rol }, JWT_SECRET, { expiresIn: '1h' });
+
+    console.log('Login exitoso');
+    return res.json({
+      token,
+      nombre: user.nombre,
+      email: user.email,
+      tipoUsuario: user.rol,
+    });
   } catch (error) {
     console.error('Error en /api/login:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
