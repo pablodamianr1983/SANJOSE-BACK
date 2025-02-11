@@ -39,7 +39,6 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Configurar CORS para permitir peticiones desde Railway y localhost
 const allowedOrigins = [
-  'http://localhost:5173',
   'https://sanjose-front-production.up.railway.app',
 ];
 
