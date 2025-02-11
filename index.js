@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -5,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const pool = require('./db');
+require('dotenv').config();
 
 // Importar las rutas
 const profesoresRoutes = require('./routes/profesores');
@@ -18,13 +20,13 @@ const licenciasRoutes = require('./routes/licencias');
 
 const app = express();
 
-// Clave secreta para JWT (usar variable de entorno en producción)
+// Clave secreta para JWT
 const JWT_SECRET = process.env.JWT_SECRET || 'tu_clave_secreta';
 
 // Configuración de multer para la subida de archivos
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // Carpeta de destino de los archivos subidos
+    cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`);
@@ -35,10 +37,15 @@ const upload = multer({ storage });
 // Hacer pública la carpeta de subida de archivos
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Usar CORS
+// Configurar CORS para permitir peticiones desde Railway y localhost
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://sanjose-front-production.up.railway.app',
+];
+
 app.use(
   cors({
-    origin: 'http://localhost:5173', // Reemplazar con el dominio del frontend en producción
+    origin: allowedOrigins,
     credentials: true,
   })
 );
@@ -50,25 +57,22 @@ app.use(express.json());
 const autenticarToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
+
   if (!token) {
-    console.error('Acceso denegado: No se proporcionó un token');
     return res.status(401).json({ message: 'Acceso denegado' });
   }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) {
-      console.error('Token inválido:', err);
       return res.status(403).json({ message: 'Token inválido' });
     }
     req.user = user;
-    console.log('Usuario autenticado:', req.user);
     next();
   });
 };
 
 // Middleware para permitir solo el acceso a administradores
 const soloAdmin = (req, res, next) => {
-  console.log('Verificando permisos de administrador para:', req.user);
   if (req.user && req.user.rol === 'administrador') {
     next();
   } else {
@@ -155,19 +159,10 @@ app.get('/api/user-details', autenticarToken, async (req, res) => {
 app.use('/api/profesores', autenticarToken, profesoresRoutes);
 app.use('/api/horarios', autenticarToken, horariosRoutes);
 app.use('/api/administradores', autenticarToken, soloAdmin, administradoresRoutes);
-
-// Remover 'soloAdmin' para permitir acceso a profesores en su perfil
 app.use('/api/perfil', autenticarToken, perfilRoutes);
-
-// Rutas de periodos externos
 app.use('/api', autenticarToken, periodosRoutes);
-
-// Rutas de mensajes
 app.use('/api/mensajes', autenticarToken, mensajesRoutes);
-
-// Rutas de usuarios
 app.use('/api/usuarios', autenticarToken, usuariosRoutes);
-
 app.use('/api', autenticarToken, licenciasRoutes);
 
 // Middleware global para manejo de errores
