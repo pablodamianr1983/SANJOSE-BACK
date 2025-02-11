@@ -271,29 +271,14 @@ router.post('/:id', async (req, res) => {
     const fechaNacimientoValue =
       fecha_nacimiento && fecha_nacimiento.trim() !== '' ? fecha_nacimiento : null;
 
-    const [existingProfile] = await pool.query('SELECT * FROM perfil WHERE profesor_id = ?', [id]);
+    const [existingProfile] = await pool.query(
+      'SELECT * FROM perfil WHERE profesor_id = ?',
+      [id]
+    );
 
     if (existingProfile.length === 0) {
-      // Crear nuevo perfil (incluye email)
       await pool.query(
-        `INSERT INTO perfil (
-          profesor_id,
-          nombre,
-          apellido,
-          dni,
-          direccion,
-          telefono_celular,
-          fecha_nacimiento,
-          anotacion,
-          cargo,
-          sexo,
-          estado_civil,
-          cuil,
-          tel_contacto_emergencias,
-          observaciones,
-          email
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-
+        'INSERT INTO perfil (profesor_id, nombre, apellido, dni, direccion, telefono_celular, fecha_nacimiento, anotacion, cargo, sexo, estado_civil, cuil, tel_contacto_emergencias, observaciones, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           id,
           nombre,
@@ -314,25 +299,8 @@ router.post('/:id', async (req, res) => {
       );
       return res.json({ message: 'Perfil creado correctamente' });
     } else {
-      // Actualizar perfil existente (incluye email)
       await pool.query(
-        `UPDATE perfil SET 
-          nombre = ?, 
-          apellido = ?, 
-          dni = ?, 
-          direccion = ?, 
-          telefono_celular = ?, 
-          fecha_nacimiento = ?, 
-          anotacion = ?, 
-          cargo = ?, 
-          sexo = ?, 
-          estado_civil = ?,
-          cuil = ?,
-          tel_contacto_emergencias = ?,
-          observaciones = ?,
-          email = ?
-          WHERE profesor_id = ?`,
-
+        'UPDATE perfil SET nombre = ?, apellido = ?, dni = ?, direccion = ?, telefono_celular = ?, fecha_nacimiento = ?, anotacion = ?, cargo = ?, sexo = ?, estado_civil = ?, cuil = ?, tel_contacto_emergencias = ?, observaciones = ?, email = ? WHERE profesor_id = ?',
         [
           nombre,
           apellido,
@@ -359,37 +327,28 @@ router.post('/:id', async (req, res) => {
   }
 });
 
-/* =================================================== */
-/* NUEVO: RUTA PARA SUBIR ARCHIVOS ADICIONALES CON TÍTULO */
-/* (Ejemplo de endpoint alternativo a la lógica “:tipo_documento”) */
-/* =================================================== */
-router.post(
-  '/:id/archivos-adicionales',
-  uploadPerfiles.single('archivo'),
-  async (req, res) => {
-    const { id } = req.params;    // profesor_id
-    const { titulo } = req.body;  // campo extra proveniente de FormData
-    const archivo = req.file;
+// Ruta para obtener la foto de perfil
+router.get('/:id/foto-perfil', async (req, res) => {
+  const { id } = req.params;
 
-    if (!archivo) {
-      return res.status(400).json({ message: 'No se ha enviado ningún archivo' });
+  try {
+    const [perfilData] = await pool.query(
+      'SELECT foto_perfil FROM perfil WHERE profesor_id = ?',
+      [id]
+    );
+
+    if (perfilData.length === 0 || !perfilData[0].foto_perfil) {
+      return res.status(404).json({ message: 'Foto de perfil no encontrada' });
     }
 
-    try {
-      // Se asume que en la tabla 'archivos_profesor' existe la columna 'titulo'
-      await pool.query(
-        `INSERT INTO archivos_profesor
-         (profesor_id, nombre_archivo, tipo_archivo, ruta_archivo, fecha_subida, titulo)
-         VALUES (?, ?, ?, ?, NOW(), ?)`,
-        [id, archivo.originalname, archivo.mimetype, archivo.path, titulo || null]
-      );
-
-      return res.json({ message: 'Archivo adicional subido correctamente' });
-    } catch (error) {
-      console.error('Error al subir archivo adicional:', error);
-      return res.status(500).json({ error: error.message });
-    }
+    res.sendFile(path.join(__dirname, '../', perfilData[0].foto_perfil));
+  } catch (error) {
+    console.error('Error al obtener la foto de perfil:', error);
+    res.status(500).json({ error: error.message });
   }
-);
+});
+
+// Configuración de Express para servir archivos estáticos
+router.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 module.exports = router;
