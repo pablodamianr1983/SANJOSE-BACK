@@ -84,6 +84,11 @@ const soloAdmin = (req, res, next) => {
 app.post('/api/login', async (req, res) => {
   const { email, contrasena } = req.body;
 
+  // Agregar logs para verificar los datos recibidos
+  console.log('Datos recibidos para login:');
+  console.log('Email:', email);
+  console.log('Contraseña:', contrasena);
+
   try {
     const [users] = await pool.query('SELECT * FROM usuarios WHERE email = ?', [email]);
     const user = users[0];
