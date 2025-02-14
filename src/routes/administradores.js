@@ -8,12 +8,15 @@ const path = require('path');
 // Configuración de Multer para la subida de fotos de perfil
 const storagePerfiles = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/perfiles-administradores/'); // Ruta para guardar fotos
+    // Asegúrate de que esta carpeta exista en tu sistema de archivos
+    const dir = 'uploads/perfiles-administradores/';
+    cb(null, dir); // Ruta para guardar fotos
   },
   filename: (req, file, cb) => {
     cb(null, `${Date.now()}-${file.originalname}`); // Nombre único para cada archivo
   },
 });
+
 const uploadPerfiles = multer({ storage: storagePerfiles });
 
 // Obtener todos los administradores
@@ -49,7 +52,6 @@ router.post('/', async (req, res) => {
       'INSERT INTO usuarios (nombre, email, contrasena, rol) VALUES (?, ?, ?, ?)',
       [nombre, email, hashedPassword, 'administrador']
     );
-
     const usuarioId = userResult.insertId;
 
     // Crear administrador en la tabla administradores
@@ -108,11 +110,13 @@ router.post('/:id/foto-perfil', uploadPerfiles.single('foto_perfil'), async (req
   }
 
   try {
-    const filePath = `uploads/perfiles-administradores/${fotoPerfil.filename}`;
+    // Guardar la ruta relativa accesible desde el navegador
+    const filePath = `/uploads/perfiles-administradores/${fotoPerfil.filename}`;
     await pool.query(
       'UPDATE administradores SET foto_perfil = ? WHERE id = ?',
       [filePath, id]
     );
+
     res.json({ message: 'Foto de perfil actualizada correctamente', foto_perfil: filePath });
   } catch (error) {
     console.error('Error al subir la foto de perfil:', error);
@@ -142,7 +146,6 @@ router.delete('/:id', async (req, res) => {
     // Obtener usuario_id antes de eliminar
     const [admins] = await pool.query('SELECT usuario_id FROM administradores WHERE id = ?', [id]);
     const usuarioId = admins[0]?.usuario_id;
-
     if (!usuarioId) {
       return res.status(404).json({ message: 'Administrador no encontrado' });
     }
